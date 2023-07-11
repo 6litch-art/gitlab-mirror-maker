@@ -6,15 +6,17 @@ api = 'https://gitlab.com/api/v4'
 # GitLab user authentication token
 token = ''
 
-
-def get_repos():
+def get_repos(visibility = '', archive = False, page = 1):
     """Finds all public GitLab repositories of authenticated user.
 
     Returns:
      - List of public GitLab repositories.
     """
 
-    url = api + '/projects?visibility=public&owned=true&archived=false'
+    gitlab_visibility = f"visibility={visibility}&" if visibility else ""
+    gitlab_archived = "true" if archive else "false"
+
+    url = api + f'/projects?{gitlab_visibility}owned=true&archived={gitlab_archived}&page={page}'
     headers = {'Authorization': f'Bearer {token}'}
 
     try:
@@ -23,7 +25,15 @@ def get_repos():
     except requests.exceptions.RequestException as e:
         raise SystemExit(e)
 
-    return r.json()
+    nextRepos = []
+    nextPage = r.headers["X-Next-Page"] if "X-Next-Page" in r.headers else 0
+    if nextPage: nextRepos = get_repos(visibility, archive, nextPage)
+
+    repos = r.json()
+    for repo in nextRepos:
+        repos.append(repo)
+
+    return repos
 
 
 def get_user():
@@ -39,14 +49,18 @@ def get_user():
     return r.json()
 
 
-def get_repo_by_shorthand(shorthand):
-    if "/" not in shorthand:
-        user = get_user()["username"]
-        namespace, project = user, shorthand
-    else:
-        namespace, project = shorthand.rsplit("/", maxsplit=1)
+def get_repo_by_shorthand(shorthand, visibility):
 
-    project_id = requests.utils.quote("/".join([namespace, project]), safe="")
+    projects = get_repos(visibility)
+
+    project_id = -1
+    for project in projects:
+        project_id = project["id"] if project["path_with_namespace"] == shorthand else -1
+        if (project_id > 0): break
+
+    if (project_id < 0):
+        print("Failed to find project with path: "+shorthand + " (is it private/internal repository? use `--gitlab-private`)")
+        raise SystemExit(1)
 
     url = f'/projects/{project_id}'
     url = api+url
@@ -103,7 +117,7 @@ def mirror_target_exists(github_repos, mirrors):
     return False
 
 
-def create_mirror(gitlab_repo, github_token, github_user):
+def create_mirror(gitlab_repo, github_token, github_org, github_user):
     """Creates a push mirror of GitLab repository.
 
     For more details see: 
@@ -122,12 +136,9 @@ def create_mirror(gitlab_repo, github_token, github_user):
     url = api + url
     headers = {'Authorization': f'Bearer {token}'}
 
-    # If github-user is not provided use the gitlab username
-    if not github_user:
-        github_user = gitlab_repo['owner']['username']
-
+    github_path = f'{github_org}' if github_org else f'{github_user}' 
     data = {
-        'url': f'https://{github_user}:{github_token}@github.com/{github_user}/{gitlab_repo["path"]}.git',
+        'url': f'https://{github_user}:{github_token}@github.com/{github_path}/{gitlab_repo["path"]}.git',
         'enabled': True
     }
 
@@ -135,6 +146,32 @@ def create_mirror(gitlab_repo, github_token, github_user):
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
+        print("Failed to mirror repository: "+url)
         raise SystemExit(e)
 
     return r.json()
+
+def delete_mirrors(gitlab_repo):
+    """Delete a remote mirror in GitLab repository.
+
+    For more details see: 
+    https://docs.gitlab.com/ee/api/remote_mirrors.html#delete-a-remote-mirror
+
+    Args:
+     - gitlab_repo: GitLab repository to mirror.
+
+    """
+
+    mirrors = get_mirrors(gitlab_repo)
+    for mirror in mirrors:
+
+        url = f'/projects/{gitlab_repo["id"]}/remote_mirrors/{mirror["id"]}'
+        url = api + url
+        headers = {'Authorization': f'Bearer {token}'}
+
+        try:
+            r = requests.delete(url, headers=headers)
+            r.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print("Failed to mirror repository "+url)
+            raise SystemExit(e)
