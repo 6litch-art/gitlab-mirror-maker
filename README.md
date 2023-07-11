@@ -60,16 +60,35 @@ Usage: gitlab-mirror-maker [OPTIONS] [REPO]
   project under a specific namespace ("mynamespace/myproject").
 
 Options:
-  --version                 Show the version and exit.
-  --github-token TEXT       GitHub authentication token  [required]
-  --gitlab-token TEXT       GitLab authentication token  [required]
-  --github-user TEXT        GitHub username. If not provided, your GitLab
-                            username will be used by default.
+  --version                       Show the version and exit.
+  --github-token TEXT             GitHub authentication token  [required]
+  --github-user TEXT              GitHub username. If not provided, your
+                                  GitLab username will be used by default.
+                                  [required]
 
-  --dry-run / --no-dry-run  If enabled, a summary will be printed and no
-                            mirrors will be created.
+  --github-org TEXT               GitHub organisation. If not provided, your
+                                  github personal repository will be used
 
-  --help                    Show this message and exit.
+  --gitlab-token TEXT             GitLab authentication token  [required]
+  --gitlab-api TEXT               GitLab API address (by default: `https://gitlab.glitchr.dev/api/v4`)
+  --gitlab-private / --gitlab-public
+                                  Include private/internal repositories to
+                                  GitHub (NB: `internal` becomes `private`
+                                  visibility on GitHub)
+
+  --gitlab-archive / --no-gitlab-archive
+                                  Include archived repositories to GitHub
+  --dry-run / --no-dry-run        If enabled, a summary will be printed and no
+                                  mirrors will be created.
+
+  --delete-mirrors / --keep-mirrors
+                                  Delete remote mirror from GitLab. (this
+                                  doesn't delete any repository on
+                                  GitLab/GitHub)
+
+  --delete-from-github / --keep-repository-on-github
+                                  Delete remote repository from GitHub.
+  --help                          Show this message and exit.
 ```
 
 # How it works?
@@ -82,10 +101,10 @@ Once the mirror is created it automatically updates the target GitHub repository
 
 ### What is mirrored?
 
-Only public repositories are mirrored to avoid publishing something private.
+All public/internal/private repositories can be mirrored. To mirror private/internal repositories, use.
+Private/internal repositories are mapped to private visibility on GitHub.
 
 Only the commits, branches and tags are mirrored. No other repository data such as issues, pull requests, comments, wikis etc. are mirrored.
-
 
 # Authentication
 
@@ -109,20 +128,14 @@ Here's more information about [GitLab personal tokens](https://docs.gitlab.com/e
 Here's more information about [GitHub personal tokens](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line).
 
 
-# Automate with GitLab CI
+# Automate with crontab
 
-Instead of running the tool manually you may want to schedule it to run periodically with GitLab CI to make sure that any new repositories are automatically mirrored.
+Repositories appears blank on GitHub, first. After you submitted a commit or called a push event your repository will be updated.
+In case visibility is changed, you need to setup a crontab on your machine to make sure repositories are up-to-date
 
-Here's a `.gitlab-ci.yml` snippet you can use:
-```yaml
-job:
-  image: python:3.8-alpine
-  script:
-    - pip install gitlab-mirror-maker
-    - gitlab-mirror-maker
-  only:
-    - schedules
-
+```
+# Every day at midnight..
+0 0 * * * gitlab-mirror-maker --gitlab-token $GITLAB_TOKEN --github-token $GITHUB_TOKEN --gitlab-api https://gitlab.glitchr.dev/api/v4
 ```
 
 Here's more info about creating [scheduled pipelines with GitLab CI](https://docs.gitlab.com/ee/ci/pipelines/schedules.html).
