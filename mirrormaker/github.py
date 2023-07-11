@@ -81,7 +81,7 @@ def create_repo(gitlab_repo, github_org):
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        if e.response.json()["errors"][0]["message"] != "name already exists on this account":
+        if not "errors" in e.response.json() or e.response.json()["errors"][0]["message"] != "name already exists on this account":
             print("Failed to create github repository: "+gitlab_repo['path_with_namespace'])
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
@@ -110,7 +110,7 @@ def delete_repo(gitlab_repo, github_org):
         r = requests.delete(url, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        if e.response.json()["message"] != "Not Found":
+        if not "message" in e.response.json() or e.response.json()["message"] != "Not Found":
             print("Failed to delete github repository: "+gitlab_repo['path_with_namespace'])
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
