@@ -1,5 +1,8 @@
 import requests
 
+# GitLab api address
+api = 'https://gitlab.com/api/v4'
+
 # GitLab user authentication token
 token = ''
 
@@ -11,7 +14,7 @@ def get_repos():
      - List of public GitLab repositories.
     """
 
-    url = 'https://gitlab.com/api/v4/projects?visibility=public&owned=true&archived=false'
+    url = api + '/projects?visibility=public&owned=true&archived=false'
     headers = {'Authorization': f'Bearer {token}'}
 
     try:
@@ -24,7 +27,7 @@ def get_repos():
 
 
 def get_user():
-    url = 'https://gitlab.com/api/v4/user'
+    url = api+'/user'
     headers = {'Authorization': f'Bearer {token}'}
 
     try:
@@ -45,7 +48,8 @@ def get_repo_by_shorthand(shorthand):
 
     project_id = requests.utils.quote("/".join([namespace, project]), safe="")
 
-    url = f'https://gitlab.com/api/v4/projects/{project_id}'
+    url = f'/projects/{project_id}'
+    url = api+url
     headers = {'Authorization': f'Bearer {token}'}
 
     try:
@@ -68,7 +72,8 @@ def get_mirrors(gitlab_repo):
      - List of mirrors.
     """
 
-    url = f'https://gitlab.com/api/v4/projects/{gitlab_repo["id"]}/remote_mirrors'
+    url = f'/projects/{gitlab_repo["id"]}/remote_mirrors'
+    url = api + url
     headers = {'Authorization': f'Bearer {token}'}
 
     try:
@@ -113,7 +118,8 @@ def create_mirror(gitlab_repo, github_token, github_user):
      - JSON representation of created mirror.
     """
 
-    url = f'https://gitlab.com/api/v4/projects/{gitlab_repo["id"]}/remote_mirrors'
+    url = f'/projects/{gitlab_repo["id"]}/remote_mirrors'
+    url = api + url
     headers = {'Authorization': f'Bearer {token}'}
 
     # If github-user is not provided use the gitlab username
