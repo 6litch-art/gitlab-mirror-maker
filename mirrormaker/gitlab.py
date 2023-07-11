@@ -138,7 +138,7 @@ def create_mirror(gitlab_repo, github_token, github_org, github_user):
 
     github_path = f'{github_org}' if github_org else f'{github_user}' 
     data = {
-        'url': f'https://{github_user}:{github_token}@github.com/{github_path}/{gitlab_repo["path"]}.git',
+        'url': f'https://{github_user}:{github_token}@github.com/{github_path}/{gitlab_repo["path_with_namespace"]}.git',
         'enabled': True
     }
 
