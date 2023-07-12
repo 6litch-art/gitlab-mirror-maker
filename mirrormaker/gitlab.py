@@ -6,12 +6,15 @@ api = 'https://gitlab.com/api/v4'
 # GitLab user authentication token
 token = ''
 
-def get_repos(visibility = '', archive = False, page = 1):
+def get_repos(visibility = '', archive = False, page = 1, fetch_next = True):
+
     """Finds all public GitLab repositories of authenticated user.
 
     Returns:
      - List of public GitLab repositories.
     """
+    page = 1 if not page else page
+    fetch_next = True if not page else fetch_next
 
     gitlab_visibility = f"visibility={visibility}&" if visibility else ""
     gitlab_archived = "true" if archive else "false"
@@ -25,13 +28,16 @@ def get_repos(visibility = '', archive = False, page = 1):
     except requests.exceptions.RequestException as e:
         raise SystemExit(e)
 
-    nextRepos = []
-    nextPage = r.headers["X-Next-Page"] if "X-Next-Page" in r.headers else 0
-    if nextPage: nextRepos = get_repos(visibility, archive, nextPage)
-
     repos = r.json()
-    for repo in nextRepos:
-        repos.append(repo)
+
+    if fetch_next:
+
+        nextRepos = []
+        nextPage = r.headers["X-Next-Page"] if "X-Next-Page" in r.headers else 0
+
+        if nextPage: nextRepos = get_repos(visibility, archive, nextPage, fetch_next)
+        for repo in nextRepos:
+            repos.append(repo)
 
     return repos
 
@@ -49,10 +55,10 @@ def get_user():
     return r.json()
 
 
-def get_repo_by_shorthand(shorthand, visibility):
+def get_repo_by_shorthand(shorthand, visibility, archive, page, fetch_next = False):
 
-    projects = get_repos(visibility)
-
+    projects = get_repos(visibility, archive, page, fetch_next)
+    
     project_id = -1
     for project in projects:
         project_id = project["id"] if project["path_with_namespace"] == shorthand else -1
@@ -138,7 +144,7 @@ def create_mirror(gitlab_repo, github_token, github_org, github_user):
 
     github_path = f'{github_org}' if github_org else f'{github_user}' 
     data = {
-        'url': f'https://{github_user}:{github_token}@github.com/{github_path}/{gitlab_repo["path_with_namespace"]}.git',
+        'url': f'https://{github_user}:{github_token}@github.com/{github_path}/{gitlab_repo["path_with_namespace"].replace("/", "-")}.git',
         'enabled': True
     }
 

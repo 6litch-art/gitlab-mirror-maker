@@ -45,8 +45,7 @@ def repo_exists(github_repos, repo_slug):
     Returns:
      - True if repository exists, False otherwise.
     """
-
-    return any(repo['full_name'] == repo_slug for repo in github_repos)
+    return any(repo['full_name'].endswith("/"+repo_slug) for repo in github_repos)
 
 
 def create_repo(gitlab_repo, github_org):
@@ -65,7 +64,7 @@ def create_repo(gitlab_repo, github_org):
     github_type = False if gitlab_repo["visibility"] == "public" else True
 
     url = f'https://api.github.com/{github_path}/repos'
-    headers = {'Authorization': f'Bearer {token}'}
+    headers = { 'Authorization': f'Bearer {token}' }
 
     data = {
         'name': github_name,
@@ -82,7 +81,7 @@ def create_repo(gitlab_repo, github_org):
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
         if not "errors" in e.response.json() or e.response.json()["errors"][0]["message"] != "name already exists on this account":
-            print("Failed to create github repository: "+gitlab_repo['path_with_namespace'])
+            print("Failed to create github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
 
@@ -111,7 +110,7 @@ def delete_repo(gitlab_repo, github_org):
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
         if not "message" in e.response.json() or e.response.json()["message"] != "Not Found":
-            print("Failed to delete github repository: "+gitlab_repo['path_with_namespace'])
+            print("Failed to delete github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
 
@@ -148,7 +147,7 @@ def patch_repo(gitlab_repo, github_org):
         r = requests.patch(url, json=data, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print("Failed to patch github repository: "+gitlab_repo['path_with_namespace'])
+        print("Failed to patch github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
         pprint(e.response.json(), stream=sys.stderr)
         raise SystemExit(e)
 

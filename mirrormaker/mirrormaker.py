@@ -15,6 +15,7 @@ from . import github
 @click.option('--gitlab-api', default=False, help='GitLab API address (by default, `https://gitlab.glitchr.dev/api/v4`)')
 @click.option('--gitlab-private/--gitlab-public', default=False, help="Include private/internal repositories to GitHub (NB: `internal` becomes `private` visibility on GitHub)")
 @click.option('--gitlab-archive/--no-gitlab-archive', default=False, help="Include archived repositories to GitHub")
+@click.option('--gitlab-page', default=0, help="Only read a specific page on gitlab")
 
 @click.option('--dry-run/--no-dry-run', default=False, help="If enabled, a summary will be printed and no mirrors will be created.")
 @click.option('--delete-mirrors/--keep-mirrors', default=False, help="Delete remote mirror from GitLab. (this doesn't delete any repository on GitLab/GitHub)")
@@ -22,7 +23,7 @@ from . import github
 
 @click.argument('repo', required=False)
 
-def mirrormaker(github_token, github_user, github_org, gitlab_token, gitlab_api, gitlab_private, gitlab_archive, dry_run, delete_mirrors, delete_from_github, repo=None):
+def mirrormaker(github_token, github_user, github_org, gitlab_token, gitlab_api, gitlab_private, gitlab_archive, gitlab_page, dry_run, delete_mirrors, delete_from_github, repo=None):
 
     """
     Set up mirroring of repositories from GitLab to GitHub.
@@ -44,10 +45,10 @@ def mirrormaker(github_token, github_user, github_org, gitlab_token, gitlab_api,
     gitlab_visibility = "public" if not gitlab_private else ""
 
     if repo:
-        gitlab_repos = [gitlab.get_repo_by_shorthand(repo, gitlab_visibility)]
+        gitlab_repos = [gitlab.get_repo_by_shorthand(repo, gitlab_visibility, gitlab_archive, gitlab_page, True if gitlab_page == 0 and not repo else False)]
     else:
         click.echo('Getting your GitLab repositories.. ', nl=False)
-        gitlab_repos = gitlab.get_repos(gitlab_visibility, gitlab_archive)
+        gitlab_repos = gitlab.get_repos(gitlab_visibility, gitlab_archive, gitlab_page, True if gitlab_page == 0 and not repo else False)
         if not gitlab_repos:
             click.echo('There are no repositories in your GitLab account.')
             return
@@ -106,12 +107,13 @@ def check_mirror_status(gitlab_repo, github_repos, delete_mirrors, delete_github
     }
 
     mirrors = gitlab.get_mirrors(gitlab_repo)
+
     if gitlab.mirror_target_exists(github_repos, mirrors):
         action['create_github'] = False
         action['create_mirror'] = False
         return action
 
-    if github.repo_exists(github_repos, gitlab_repo['path_with_namespace']):
+    if github.repo_exists(github_repos, gitlab_repo['path_with_namespace'].replace("/", "-")):
         action['create_github'] = False
         action['patch_github'] = True
 
@@ -122,10 +124,10 @@ def print_summary_table(actions):
     """Prints a table summarizing whether mirrors are already created or missing
     """
 
-    click.echo('Your mirrors status summary:\n')
+    click.echo("Print table summary before modification:")
 
-    created = click.style(u'\u2714 created', fg='green')
-    missing = click.style(u'\u2718 missing', fg='red')
+    created = click.style(u'\u2714 found', fg='green')
+    missing = click.style(u'\u2718 not found', fg='red')
 
     headers = ['GitLab repo', 'Visibility', 'Archived', 'GitHub repo', 'Mirror']
     summary = []
