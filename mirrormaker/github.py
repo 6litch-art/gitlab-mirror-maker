@@ -1,6 +1,8 @@
 import requests
 import sys
+
 from pprint import pprint
+from itertools import zip_longest
 
 # GitHub user authentication token
 token = ''
@@ -28,6 +30,7 @@ def get_repos(github_org):
             repos.extend(r.json())
             # handle pagination
             url = r.links.get("next", {}).get("url", None)
+
     except requests.exceptions.RequestException as e:
         raise SystemExit(e)
 
@@ -45,6 +48,7 @@ def repo_exists(github_repos, repo_slug):
     Returns:
      - True if repository exists, False otherwise.
     """
+    
     return any(repo['full_name'].endswith("/"+repo_slug) for repo in github_repos)
 
 
@@ -58,7 +62,7 @@ def create_repo(gitlab_repo, github_org):
      - JSON representation of created GitHub repo.
     """
 
-    github_name = gitlab_repo['path_with_namespace'].replace("/", "-")
+    github_name = gitlab_repo["github_name"]
     github_path = f'orgs/{github_org}' if github_org else f'user' 
     github_archive = gitlab_repo["archived"]
     github_type = False if gitlab_repo["visibility"] == "public" else True
@@ -68,7 +72,7 @@ def create_repo(gitlab_repo, github_org):
 
     data = {
         'name': github_name,
-        'description': f'[MIRROR] {gitlab_repo["description"]}',
+        'description': f'{gitlab_repo["description"]}',
         'homepage': gitlab_repo['web_url'],
         'private': github_type,
         'archived': github_archive,
@@ -81,7 +85,7 @@ def create_repo(gitlab_repo, github_org):
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
         if not "errors" in e.response.json() or e.response.json()["errors"][0]["message"] != "name already exists on this account":
-            print("Failed to create github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
+            print("Failed to create github repository: "+github_name)
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
 
@@ -97,7 +101,7 @@ def delete_repo(gitlab_repo, github_org):
      - JSON representation of created GitHub repo.
     """
 
-    github_name = gitlab_repo['path_with_namespace'].replace("/", "-")
+    github_name = gitlab_repo["github_name"]
     github_path = f'{github_org}' if github_org else f'user' 
     github_archive = gitlab_repo["archived"]
     github_type = False if gitlab_repo["visibility"] == "public" else True
@@ -110,7 +114,7 @@ def delete_repo(gitlab_repo, github_org):
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
         if not "message" in e.response.json() or e.response.json()["message"] != "Not Found":
-            print("Failed to delete github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
+            print("Failed to delete github repository: "+github_name)
             pprint(e.response.json(), stream=sys.stderr)
             raise SystemExit(e)
 
@@ -128,13 +132,13 @@ def patch_repo(gitlab_repo, github_org):
     github_archive = gitlab_repo["archived"]
     github_type = False if gitlab_repo["visibility"] == "public" else True
     
-    github_name = gitlab_repo['path_with_namespace'].replace("/", "-")
+    github_name = gitlab_repo["github_name"]
     github_path = f'{github_org}' if github_org else f'user' 
     headers = {'Authorization': f'Bearer {token}'}
 
     data = {
         'name': github_name,
-        'description': f'[MIRROR] {gitlab_repo["description"]}',
+        'description': f'{gitlab_repo["description"]}',
         'homepage': gitlab_repo['web_url'],
         'private': github_type,
         'has_wiki': False,
@@ -147,7 +151,7 @@ def patch_repo(gitlab_repo, github_org):
         r = requests.patch(url, json=data, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print("Failed to patch github repository: "+gitlab_repo['path_with_namespace'].replace("/", "-"))
+        print("Failed to patch github repository: "+github_name)
         pprint(e.response.json(), stream=sys.stderr)
         raise SystemExit(e)
 
